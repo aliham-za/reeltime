@@ -1,0 +1,27 @@
+# Secrets
+/backend/config/master.key
+/backend/config/credentials/*.key
+.env
+.env.*
+!.env.example
+
+# Rails
+/backend/log/*
+/backend/tmp/*
+!/backend/log/.keep
+!/backend/tmp/.keep
+/backend/storage/*
+/backend/.bundle
+/backend/vendor/bundle
+
+# Node
+node_modules/
+/frontend/dist/
+*.tsbuildinfo
+*.log
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+.claude/
