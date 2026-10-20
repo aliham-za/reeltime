@@ -40,6 +40,7 @@ export type WatchlistSummary = {
 export type Mood = 'lighthearted' | 'exciting' | 'thought_provoking' | 'emotional' | 'suspenseful' | 'comfort' | 'anything'
 export type ViewingContext = 'alone' | 'date_night' | 'friends' | 'family'
 export type CompletionPreference = 'single_sitting' | 'open_to_longer' | 'continue_started'
+export type Availability = 'anywhere' | 'free' | 'free_or_subscribed'
 
 export type RecommendationRequest = {
   available_minutes: number
@@ -48,6 +49,8 @@ export type RecommendationRequest = {
   viewing_context?: ViewingContext
   completion_preference: CompletionPreference
   include_abandoned?: boolean
+  availability?: Availability
+  limit?: number
 }
 
 export type Reason = { code: string; text: string }
@@ -68,12 +71,13 @@ export type RecommendationSession = {
   id: number
   created_at: string
   algorithm_version: string
-  constraints: Required<Omit<RecommendationRequest, 'mood' | 'viewing_context'>> & {
+  constraints: Required<Omit<RecommendationRequest, 'mood' | 'viewing_context' | 'limit'>> & {
     mood: Mood | null
     viewing_context: ViewingContext | null
+    region: string | null
   }
   candidate_count: number
-  exclusions: { too_long: number; missing_runtime: number } | null
+  exclusions: { too_long: number; missing_runtime: number; not_available?: number } | null
   selected_movie_id: number | null
   items: RecommendationItem[]
 }
@@ -97,7 +101,17 @@ export type WatchSession = {
 export type Insight = { code: string; text: string; value: number | string }
 export type InsightsOverview = { completed_total: number; insights: Insight[] }
 
-export type User = { id: number; email: string; created_at: string }
+export type User = { id: number; email: string; country: string; subscribed_provider_ids: number[]; created_at: string }
+
+export type Provider = { id: number; name: string; logo_path: string | null }
+export type Region = { code: string; name: string }
+export const AVAILABILITY_GROUPS = ['free', 'subscription', 'rent', 'buy'] as const
+export type MovieAvailability = {
+  region: string
+  link: string | null
+  fetched_at?: string
+  groups: Record<(typeof AVAILABILITY_GROUPS)[number], (Provider & { subscribed: boolean })[]>
+}
 
 export type PageMeta = { page: number; per_page?: number; total?: number; total_pages: number; source?: 'tmdb' | 'local'; notice?: string }
 export type Paged<T> = { data: T[]; meta: PageMeta }

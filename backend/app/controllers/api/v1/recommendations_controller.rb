@@ -22,7 +22,10 @@ module Api
         request = Recommendations::Engine::Request.new(
           available_minutes: minutes,
           completion_preference: RecommendationSession::COMPLETION_PREFERENCES.include?(params[:completion_preference]) ? params[:completion_preference] : "single_sitting",
-          include_abandoned: ActiveModel::Type::Boolean.new.cast(params[:include_abandoned])
+          include_abandoned: ActiveModel::Type::Boolean.new.cast(params[:include_abandoned]),
+          availability: RecommendationSession::AVAILABILITIES.include?(params[:availability]) ? params[:availability] : "anywhere",
+          region: current_user.country,
+          subscribed_provider_ids: current_user.subscribed_provider_ids
         )
         render json: { data: { eligible_count: Recommendations::Engine.new(current_user, request).eligible_count } }
       end
@@ -48,7 +51,7 @@ module Api
       private
 
       def recommendation_params
-        params.permit(:available_minutes, :mood, :viewing_context, :completion_preference, :include_abandoned, :limit, genre_ids: [])
+        params.permit(:available_minutes, :mood, :viewing_context, :completion_preference, :include_abandoned, :limit, :availability, genre_ids: [])
       end
 
       def reload_session(id)

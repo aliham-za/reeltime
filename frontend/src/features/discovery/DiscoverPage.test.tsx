@@ -27,12 +27,20 @@ it('browses popular movies until a filter is chosen, then discovers with the fil
   await user.selectOptions(screen.getByLabelText('Genre'), 'Comedy')
   await user.selectOptions(screen.getByLabelText('Maximum runtime'), 'Under 1h 30m')
 
-  await waitFor(() => expect(mocked.discoverMovies).toHaveBeenLastCalledWith({ genre_id: 4, year: undefined, max_runtime: 90 }, 1))
+  await waitFor(() => expect(mocked.discoverMovies).toHaveBeenLastCalledWith({ genre_id: 4, year: undefined, max_runtime: 90, free: undefined }, 1))
   expect(screen.getByRole('heading', { name: 'Comedy under 1h 30m' })).toBeInTheDocument()
   expect(await screen.findByText('No movies match these filters.')).toBeInTheDocument()
 })
 
 it('restores filters from the URL', async () => {
   renderPage(<DiscoverPage />, { path: '/discover', route: '/discover?year=2001&page=3' })
-  await waitFor(() => expect(mocked.discoverMovies).toHaveBeenCalledWith({ genre_id: undefined, year: 2001, max_runtime: undefined }, 3))
+  await waitFor(() => expect(mocked.discoverMovies).toHaveBeenCalledWith({ genre_id: undefined, year: 2001, max_runtime: undefined, free: undefined }, 3))
+})
+
+it('browses free movies with the Free to watch filter', async () => {
+  const user = userEvent.setup()
+  renderPage(<DiscoverPage />, { path: '/discover', route: '/discover' })
+  await user.click(await screen.findByRole('button', { name: 'Free to watch' }))
+  await waitFor(() => expect(mocked.discoverMovies).toHaveBeenLastCalledWith({ genre_id: undefined, year: undefined, max_runtime: undefined, free: true }, 1))
+  expect(screen.getByRole('heading', { name: 'Free movies' })).toBeInTheDocument()
 })

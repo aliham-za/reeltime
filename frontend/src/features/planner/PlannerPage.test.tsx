@@ -7,6 +7,7 @@ import { PlannerPage } from './PlannerPage'
 vi.mock('../../lib/api', async (orig) => ({
   ...(await orig<typeof import('../../lib/api')>()),
   api: {
+    me: vi.fn(),
     watchlistSummary: vi.fn(),
     genres: vi.fn(),
     previewCount: vi.fn(),
@@ -21,6 +22,7 @@ beforeEach(() => {
   mocked.watchlistSummary.mockResolvedValue({ total: 5, by_status: { want_to_watch: 5, watching: 0, paused: 0, watched: 0, abandoned: 0 }, fits_window: {} })
   mocked.genres.mockResolvedValue([{ id: 4, name: 'Comedy' }, { id: 9, name: 'Mystery' }])
   mocked.previewCount.mockResolvedValue(3)
+  mocked.me.mockResolvedValue({ id: 1, email: 'a@b.test', country: 'PK', subscribed_provider_ids: [], created_at: '' })
 })
 
 it('submits the chosen time, mood and genres', async () => {
@@ -43,14 +45,16 @@ it('submits the chosen time, mood and genres', async () => {
       genre_ids: [9],
       viewing_context: undefined,
     completion_preference: 'single_sitting',
+    availability: 'anywhere',
+    limit: 5,
   })
   expect(await screen.findByText('navigated')).toBeInTheDocument()
 })
 
 it('shows how many movies fit', async () => {
   renderPage(<PlannerPage />, { path: '/plan', route: '/plan?minutes=60' })
-  expect(await screen.findByText(/movies fit in 60 minutes/)).toBeInTheDocument()
-  expect(mocked.previewCount).toHaveBeenCalledWith({ available_minutes: 60, completion_preference: 'single_sitting' })
+  expect(await screen.findByText(/on your watchlist fit in 60 minutes/)).toBeInTheDocument()
+  expect(mocked.previewCount).toHaveBeenCalledWith({ available_minutes: 60, completion_preference: 'single_sitting', availability: 'anywhere' })
 })
 
 it('blocks an out-of-range custom time', async () => {
@@ -81,4 +85,21 @@ it('points to discovery when the watchlist is empty', async () => {
   renderPage(<PlannerPage />, { path: '/plan', route: '/plan' })
   expect(await screen.findByText('Nothing on your watchlist yet.')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Discover movies' })).toHaveAttribute('href', '/discover')
+})
+
+it('filters by where you can watch, and nudges you to add services', async () => {
+  mocked.recommend.mockResolvedValue({ id: 1 } as never)
+  const user = userEvent.setup()
+  renderPage(<PlannerPage />, { path: '/plan', route: '/plan' })
+
+  await user.click(await screen.findByRole('radio', { name: 'Free only' }))
+  await waitFor(() => expect(mocked.previewCount).toHaveBeenLastCalledWith(expect.objectContaining({ availability: 'free' })))
+  expect(await screen.findByText(/on your watchlist free to watch fit in 90 minutes/)).toBeInTheDocument()
+  expect(screen.getByText('Streaming availability in PK.')).toBeInTheDocument()
+
+  await user.click(screen.getByRole('radio', { name: 'Free or my services' }))
+  expect(screen.getByRole('link', { name: 'Add your services' })).toHaveAttribute('href', '/settings')
+
+  await user.click(screen.getByRole('button', { name: 'Find my movie' }))
+  await waitFor(() => expect(mocked.recommend.mock.calls[0][0]).toMatchObject({ availability: 'free_or_subscribed' }))
 })

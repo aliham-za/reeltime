@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { formatRuntime } from '../../lib/format'
 import type { Movie } from '../../types/api'
-import { Button, EmptyState, ErrorState, inputClass, PageHeader, PosterGridSkeleton } from '../../components/ui'
+import { Button, Chip, EmptyState, ErrorState, inputClass, PageHeader, PosterGridSkeleton } from '../../components/ui'
 import { MovieCard, movieGridClass } from '../../components/movies'
 import { CheckIcon, PlusIcon, SearchIcon } from '../../components/icons'
 import { useWatchlistActions } from '../watchlist/useWatchlistActions'
@@ -12,7 +12,7 @@ import { useWatchlistActions } from '../watchlist/useWatchlistActions'
 const RUNTIME_OPTIONS = [60, 90, 120, 150]
 const THIS_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: THIS_YEAR + 1 - 1920 + 1 }, (_, i) => THIS_YEAR + 1 - i)
-const FILTER_KEYS = ['genre', 'year', 'runtime'] as const
+const FILTER_KEYS = ['genre', 'year', 'runtime', 'free'] as const
 const filterSelectClass = `${inputClass.replace('w-full', '')} flex-1 sm:flex-none sm:w-44`
 
 export function DiscoverPage() {
@@ -22,15 +22,16 @@ export function DiscoverPage() {
   const genre = Number(params.get('genre')) || undefined
   const year = Number(params.get('year')) || undefined
   const runtime = Number(params.get('runtime')) || undefined
-  const filtered = Boolean(genre || year || runtime)
+  const free = params.get('free') === '1'
+  const filtered = Boolean(genre || year || runtime || free)
   const [draft, setDraft] = useState(q)
 
   const genres = useQuery({ queryKey: ['genres'], queryFn: api.genres, staleTime: Infinity })
   const results = useQuery({
-    queryKey: ['movies', q ? 'search' : filtered ? 'discover' : 'popular', q, genre, year, runtime, page],
+    queryKey: ['movies', q ? 'search' : filtered ? 'discover' : 'popular', q, genre, year, runtime, free, page],
     queryFn: () =>
       q ? api.searchMovies(q, page)
-        : filtered ? api.discoverMovies({ genre_id: genre, year, max_runtime: runtime }, page)
+        : filtered ? api.discoverMovies({ genre_id: genre, year, max_runtime: runtime, free: free || undefined }, page)
           : api.popularMovies(page),
     placeholderData: (prev) => prev,
   })
@@ -52,7 +53,7 @@ export function DiscoverPage() {
   const heading = q
     ? `Results for “${q}”`
     : filtered
-      ? [genreName ?? 'Movies', year && `from ${year}`, runtime && `under ${formatRuntime(runtime)}`].filter(Boolean).join(' ')
+      ? [free ? `Free ${genreName ?? 'movies'}` : genreName ?? 'Movies', year && `from ${year}`, runtime && `under ${formatRuntime(runtime)}`].filter(Boolean).join(' ')
       : 'Popular right now'
 
   return (
@@ -92,6 +93,7 @@ export function DiscoverPage() {
             <option value="">Any length</option>
             {RUNTIME_OPTIONS.map((m) => <option key={m} value={m}>Under {formatRuntime(m)}</option>)}
           </select>
+          <Chip selected={free} onClick={() => update({ free: free ? undefined : 1 })}>Free to watch</Chip>
           {filtered && (
             <button type="button" className="px-2 text-sm font-medium text-fg-2 hover:text-fg"
               onClick={() => update(Object.fromEntries(FILTER_KEYS.map((k) => [k, undefined])))}>

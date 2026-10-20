@@ -17,6 +17,13 @@ module Api
         render_movie Movie.includes(:genres).find(params[:id])
       end
 
+      # Where to watch this movie in the user's country.
+      def availability
+        movie = Movie.find(params[:id])
+        avail = WatchAvailability.new(current_user.country).for_movie(movie)
+        render json: { data: ApiJson.availability(avail, current_user.country, current_user.subscribed_provider_ids) }
+      end
+
       def search
         query = params[:q].to_s.strip
         return render_error(:bad_request, "Enter a title to search", code: "invalid_query") if query.blank? || query.length > 100
@@ -28,7 +35,7 @@ module Api
         render_page catalog.popular(page: page_params.first)
       end
 
-      # Filtered browse: genre_id (ReelTime genre id), year, max_runtime (minutes). All optional.
+      # Filtered browse: genre_id (ReelTime genre id), year, max_runtime (minutes), free. All optional.
       def discover
         genre = Genre.find_by(id: params[:genre_id]) if params[:genre_id].present?
         return render_error(:unprocessable_content, "Unknown genre", code: "validation_failed") if params[:genre_id].present? && genre.nil?
@@ -39,7 +46,8 @@ module Api
         max_runtime = params[:max_runtime].presence&.to_i
         return render_error(:unprocessable_content, "Maximum runtime must be between 10 and 360 minutes", code: "validation_failed") if max_runtime && !max_runtime.between?(10, 360)
 
-        render_page catalog.discover(genre:, year:, max_runtime:, page: page_params.first)
+        free_in = current_user.country if ActiveModel::Type::Boolean.new.cast(params[:free])
+        render_page catalog.discover(genre:, year:, max_runtime:, free_in:, page: page_params.first)
       end
 
       # Imports a TMDB movie (with runtime and genres) and returns the local record.

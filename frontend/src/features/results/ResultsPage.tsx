@@ -1,9 +1,12 @@
 import { useState } from 'react'
+
+/** Picks shown up front; the rest of the stored shortlist (up to 5) is one click away. */
+const INITIAL_PICKS = 3
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
-import { invalidateLibrary, queryClient } from '../../lib/query-client'
-import { CONTEXT_OPTIONS, formatRuntime, MOOD_OPTIONS } from '../../lib/format'
+import { invalidateLibrary } from '../../lib/query-client'
+import { AVAILABILITY_LABELS, CONTEXT_OPTIONS, formatRuntime, MOOD_OPTIONS } from '../../lib/format'
 import type { Genre, RecommendationItem, RecommendationSession } from '../../types/api'
 import { Button, ButtonLink, EmptyState, ErrorState, Skeleton } from '../../components/ui'
 import { GenreBadges, movieHref, Poster } from '../../components/movies'
@@ -15,6 +18,7 @@ export function plannerLink(c: RecommendationSession['constraints']) {
   if (c.mood) params.set('mood', c.mood)
   if (c.genre_ids.length) params.set('genres', c.genre_ids.join(','))
   if (c.viewing_context) params.set('context', c.viewing_context)
+  if (c.availability && c.availability !== 'anywhere') params.set('watch', c.availability)
   return `/plan?${params}`
 }
 
@@ -22,6 +26,7 @@ export function ResultsPage() {
   const sessionId = Number(useParams().sessionId)
   const session = useQuery({ queryKey: ['recommendation', sessionId], queryFn: () => api.recommendation(sessionId) })
   const genres = useQuery({ queryKey: ['genres'], queryFn: api.genres, staleTime: Infinity })
+  const [expanded, setExpanded] = useState(false)
 
   if (session.isPending) {
     return (
@@ -34,7 +39,9 @@ export function ResultsPage() {
   if (session.error) return <ErrorState error={session.error} onRetry={() => session.refetch()} />
 
   const data = session.data
+  // Dismissed picks drop out, so the next-ranked stored pick moves up to take their place.
   const visible = data.items.filter((i) => !i.dismissed_at)
+  const shown = expanded ? visible : visible.slice(0, INITIAL_PICKS)
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -42,7 +49,7 @@ export function ResultsPage() {
       {data.items.length === 0 ? (
         <NoMatches session={data} />
       ) : visible.length === 0 ? (
-        <EmptyState title="That's everything that fits tonight." description="Try a different window or mood, or come back to these another time.">
+        <EmptyState title="That's the whole shortlist." description="Try a different time or mood for a fresh set of picks.">
           <ButtonLink to={plannerLink(data.constraints)}>Adjust my time</ButtonLink>
           <ButtonLink to="/discover" variant="secondary">Discover movies</ButtonLink>
         </EmptyState>
@@ -57,10 +64,17 @@ export function ResultsPage() {
             </p>
           </header>
           <ol className="space-y-5">
-            {visible.map((item) => (
+            {shown.map((item) => (
               <li key={item.id}><RecommendationCard item={item} session={data} /></li>
             ))}
           </ol>
+          {visible.length > shown.length && (
+            <div className="mt-6 flex justify-center">
+              <Button variant="secondary" onClick={() => setExpanded(true)}>
+                Show {visible.length - shown.length} more {visible.length - shown.length === 1 ? 'option' : 'options'}
+              </Button>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -75,6 +89,7 @@ function ConstraintsBar({ session, genres }: { session: RecommendationSession; g
     c.mood && c.mood !== 'anything' ? MOOD_OPTIONS.find((m) => m.value === c.mood)?.label : null,
     c.genre_ids.length ? genres.filter((g) => c.genre_ids.includes(g.id)).map((g) => g.name).join(', ') : null,
     c.viewing_context ? CONTEXT_OPTIONS.find((o) => o.value === c.viewing_context)?.label : null,
+    c.availability && c.availability !== 'anywhere' ? `${AVAILABILITY_LABELS[c.availability]}${c.region ? ` (${c.region})` : ''}` : null,
   ].filter(Boolean)
 
   return (
@@ -96,18 +111,33 @@ function NoMatches({ session }: { session: RecommendationSession }) {
   const reasons = [
     ex?.too_long ? `${ex.too_long} ${ex.too_long === 1 ? 'movie runs' : 'movies run'} longer than ${c.available_minutes} minutes.` : null,
     ex?.missing_runtime ? `${ex.missing_runtime} ${ex.missing_runtime === 1 ? "doesn't" : "don't"} have a runtime listed, so we can't promise a finish.` : null,
+    ex?.not_available
+      ? `${ex.not_available} ${ex.not_available === 1 ? "isn't" : "aren't"} ${c.availability === 'free' ? 'free' : 'free or on your services'} in ${c.region ?? 'your country'}.`
+      : null,
   ].filter(Boolean)
+  const blockedByAvailability = Boolean(ex?.not_available) && !ex?.too_long
   const continuing = c.completion_preference === 'continue_started'
 
   return (
     <div className="mt-8">
       <EmptyState
         icon={<ClockIcon width={32} height={32} />}
-        title={continuing && !ex?.too_long ? "You don't have anything in progress." : 'Nothing fits your time window right now.'}
-        description={continuing && !ex?.too_long ? 'Start something new instead. Your paused movies will show up here.' : 'Try a little more time or add a few shorter movies.'}
+        title={blockedByAvailability ? 'Nothing on your watchlist matches where you can watch.' : continuing && !ex?.too_long ? "You don't have anything in progress." : 'Nothing fits your time window right now.'}
+        description={blockedByAvailability
+          ? 'Find free movies to add, or watch from anywhere tonight.'
+          : continuing && !ex?.too_long ? 'Start something new instead. Your paused movies will show up here.' : 'Try a little more time or add a few shorter movies.'}
       >
-        <ButtonLink to={plannerLink(c)}>Adjust my time</ButtonLink>
-        <ButtonLink to="/discover" variant="secondary">Discover movies</ButtonLink>
+        {blockedByAvailability ? (
+          <>
+            <ButtonLink to={`/discover?free=1&runtime=${c.completion_preference === 'single_sitting' ? c.available_minutes : ''}`}>Find free movies</ButtonLink>
+            <ButtonLink to={plannerLink({ ...c, availability: 'anywhere' })} variant="secondary">Watch from anywhere</ButtonLink>
+          </>
+        ) : (
+          <>
+            <ButtonLink to={plannerLink(c)}>Adjust my time</ButtonLink>
+            <ButtonLink to="/discover" variant="secondary">Discover movies</ButtonLink>
+          </>
+        )}
       </EmptyState>
       {reasons.length > 0 && (
         <ul className="mt-4 space-y-1 text-center text-sm text-muted">{reasons.map((r) => <li key={r}>{r}</li>)}</ul>
@@ -122,6 +152,7 @@ function RecommendationCard({ item, session }: { item: RecommendationItem; sessi
   const [chosen, setChosen] = useState(Boolean(item.selected_at))
   const movie = item.movie
   const movieId = movie.id!
+  const queryClient = useQueryClient()
   const update = (s: RecommendationSession) => queryClient.setQueryData(['recommendation', session.id], s)
 
   const choose = useMutation({

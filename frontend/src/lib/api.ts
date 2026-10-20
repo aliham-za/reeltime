@@ -1,5 +1,5 @@
 import type {
-  Genre, InsightsOverview, Movie, Paged, RecommendationRequest, RecommendationSession, User,
+  Genre, InsightsOverview, Movie, MovieAvailability, Paged, Provider, Region, RecommendationRequest, RecommendationSession, User,
   WatchSession, WatchlistItem, WatchlistSummary, WatchStatus, Outcome, ViewingContext,
 } from '../types/api'
 
@@ -56,13 +56,19 @@ export const api = {
   login: (email: string, password: string) => post<One<User>>('/auth/login', { user: { email, password } }).then((r) => r.data),
   register: (email: string, password: string) => post<One<User>>('/auth/register', { user: { email, password } }).then((r) => r.data),
   logout: () => del('/auth/logout'),
+  updateMe: (changes: Partial<Pick<User, 'country' | 'subscribed_provider_ids'>>) =>
+    patch<One<User>>('/me', { user: changes }).then((r) => r.data),
+
+  regions: () => get<One<Region[]>>('/watch_providers/regions').then((r) => r.data),
+  providers: (region: string) => get<One<Provider[]>>('/watch_providers', { region }).then((r) => r.data),
+  availability: (movieId: number) => get<One<MovieAvailability>>(`/movies/${movieId}/availability`).then((r) => r.data),
 
   genres: () => get<One<Genre[]>>('/genres').then((r) => r.data),
   movie: (id: number) => get<One<Movie>>(`/movies/${id}`).then((r) => r.data),
   tmdbMovie: (tmdbId: number) => get<One<Movie>>(`/movies/tmdb/${tmdbId}`).then((r) => r.data),
   searchMovies: (q: string, page = 1) => get<Paged<Movie>>('/movies/search', { q, page }),
   popularMovies: (page = 1) => get<Paged<Movie>>('/movies/popular', { page }),
-  discoverMovies: (filters: { genre_id?: number; year?: number; max_runtime?: number }, page = 1) =>
+  discoverMovies: (filters: { genre_id?: number; year?: number; max_runtime?: number; free?: boolean }, page = 1) =>
     get<Paged<Movie>>('/movies/discover', { ...filters, page }),
 
   watchlist: (query: { status?: string; genre_id?: number; q?: string; sort?: string; page?: number; per_page?: number } = {}) =>
@@ -75,7 +81,7 @@ export const api = {
     patch<One<WatchlistItem>>(`/watchlist/${id}`, { watchlist_item: changes }).then((r) => r.data),
   removeFromWatchlist: (id: number) => del(`/watchlist/${id}`),
 
-  previewCount: (q: { available_minutes: number; completion_preference: string; include_abandoned?: boolean }) =>
+  previewCount: (q: { available_minutes: number; completion_preference: string; availability?: string; include_abandoned?: boolean }) =>
     get<One<{ eligible_count: number }>>('/recommendations/preview', q).then((r) => r.data.eligible_count),
   recommend: (body: RecommendationRequest) => post<One<RecommendationSession>>('/recommendations', body).then((r) => r.data),
   recommendation: (id: number) => get<One<RecommendationSession>>(`/recommendations/${id}`).then((r) => r.data),

@@ -45,7 +45,9 @@ module ApiJson
         genre_ids: session.genre_ids,
         viewing_context: session.viewing_context,
         completion_preference: session.completion_preference,
-        include_abandoned: session.include_abandoned
+        include_abandoned: session.include_abandoned,
+        availability: session.availability,
+        region: session.region
       },
       candidate_count: session.candidate_count,
       exclusions: result&.exclusions,
@@ -83,5 +85,16 @@ module ApiJson
     }
   end
 
-  def user(user) = { id: user.id, email: user.email, created_at: user.created_at }
+  def user(user)
+    { id: user.id, email: user.email, country: user.country, subscribed_provider_ids: user.subscribed_provider_ids, created_at: user.created_at }
+  end
+
+  def availability(avail, region, subscribed_ids)
+    return { region:, link: nil, groups: MovieAvailability::GROUPS.index_with { [] } } unless avail
+
+    groups = MovieAvailability::GROUPS.index_with do |group|
+      avail.providers_in(group).map { |p| p.merge("subscribed" => subscribed_ids.include?(p["id"])) }
+    end
+    { region:, link: avail.link, fetched_at: avail.fetched_at, groups: }
+  end
 end

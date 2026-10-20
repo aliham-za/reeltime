@@ -1,13 +1,22 @@
 import { useDeferredValue, useState, type FormEvent, type ReactNode } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { CONTEXT_OPTIONS } from '../../lib/format'
-import type { CompletionPreference, Mood, ViewingContext } from '../../types/api'
+import type { Availability, CompletionPreference, Mood, User, ViewingContext } from '../../types/api'
 import { Button, ButtonLink, Chip, EmptyState, Skeleton } from '../../components/ui'
 import { GenreSelector, MAX_MINUTES, MIN_MINUTES, MoodSelector, TIME_PRESETS, TimeSelector } from '../../components/planner-controls'
 import { ClockIcon } from '../../components/icons'
 import { useToast } from '../../components/toast'
+
+const AVAILABILITY_OPTIONS: { value: Availability; label: string }[] = [
+  { value: 'anywhere', label: 'Anywhere' },
+  { value: 'free', label: 'Free only' },
+  { value: 'free_or_subscribed', label: 'Free or my services' },
+]
+
+/** Picks stored per request; the results page shows 3 and keeps the rest as backups. */
+const SHORTLIST_SIZE = 5
 
 const COMPLETION_OPTIONS: { value: CompletionPreference; label: string; hint: string }[] = [
   { value: 'single_sitting', label: 'Finish in one sitting', hint: 'Only movies that fit your time' },
@@ -26,6 +35,7 @@ function useInitialState() {
     genreIds: params.get('genres')?.split(',').map(Number).filter(Boolean) ?? [],
     context: (params.get('context') as ViewingContext | null) ?? null,
     completion: (params.get('completion') as CompletionPreference | null) ?? 'single_sitting',
+    availability: (params.get('watch') as Availability | null) ?? 'anywhere',
   }
 }
 
@@ -37,6 +47,7 @@ export function PlannerPage() {
   const [genreIds, setGenreIds] = useState<number[]>(initial.genreIds)
   const [context, setContext] = useState<ViewingContext | null>(initial.context)
   const [completion, setCompletion] = useState<CompletionPreference>(initial.completion)
+  const [availability, setAvailability] = useState<Availability>(initial.availability)
   const [showMore, setShowMore] = useState(Boolean(initial.mood || initial.genreIds.length || initial.context))
   const navigate = useNavigate()
   const toast = useToast()
@@ -46,9 +57,10 @@ export function PlannerPage() {
 
   const summary = useQuery({ queryKey: ['watchlist-summary'], queryFn: api.watchlistSummary })
   const genres = useQuery({ queryKey: ['genres'], queryFn: api.genres, staleTime: Infinity })
+  const me = useQuery<User>({ queryKey: ['me'], queryFn: api.me, staleTime: Infinity })
   const preview = useQuery({
-    queryKey: ['preview', deferredMinutes, completion],
-    queryFn: () => api.previewCount({ available_minutes: deferredMinutes, completion_preference: completion }),
+    queryKey: ['preview', deferredMinutes, completion, availability],
+    queryFn: () => api.previewCount({ available_minutes: deferredMinutes, completion_preference: completion, availability }),
     enabled: validMinutes && (summary.data?.total ?? 0) > 0,
     placeholderData: (prev) => prev,
   })
@@ -68,6 +80,8 @@ export function PlannerPage() {
       genre_ids: genreIds,
       viewing_context: context ?? undefined,
       completion_preference: completion,
+      availability,
+      limit: SHORTLIST_SIZE,
     })
   }
 
@@ -111,6 +125,28 @@ export function PlannerPage() {
         </div>
       </PlannerBlock>
 
+      <PlannerBlock title="Where can you watch?" hint={me.data ? `Streaming availability in ${me.data.country}.` : undefined}>
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Where can you watch">
+          {AVAILABILITY_OPTIONS.map((o) => (
+            <label key={o.value} className="relative">
+              <input type="radio" name="availability" className="peer sr-only" checked={availability === o.value} onChange={() => setAvailability(o.value)} />
+              <span className={`inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 text-sm transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent ${
+                availability === o.value ? 'border-accent/60 bg-accent/12 text-fg' : 'border-line bg-card text-fg-2 hover:border-fg-2/40 hover:text-fg'
+              }`}>
+                {availability === o.value && <span aria-hidden className="text-accent">✓</span>}
+                {o.label}
+              </span>
+            </label>
+          ))}
+        </div>
+        {availability === 'free_or_subscribed' && me.data?.subscribed_provider_ids.length === 0 && (
+          <p className="mt-2 text-sm text-fg-2">
+            You haven't added any services yet, so this is the same as free only.{' '}
+            <Link to="/settings" className="text-accent hover:underline">Add your services</Link>
+          </p>
+        )}
+      </PlannerBlock>
+
       {!showMore ? (
         <button type="button" onClick={() => setShowMore(true)} className="mt-8 text-sm font-medium text-fg-2 underline-offset-4 hover:text-fg hover:underline">
           + Add mood, genres or company (optional)
@@ -135,7 +171,7 @@ export function PlannerPage() {
 
       <div className="sticky bottom-20 z-10 mt-10 flex flex-col gap-3 rounded-2xl border border-line bg-surface/95 p-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between md:bottom-6">
         <p className="text-sm text-fg-2" aria-live="polite">
-          {preview.data === undefined ? 'Just a few good options. No endless scrolling.' : <PreviewText count={preview.data} minutes={deferredMinutes} completion={completion} />}
+          {preview.data === undefined ? 'Just a few good options. No endless scrolling.' : <PreviewText count={preview.data} minutes={deferredMinutes} completion={completion} availability={availability} />}
         </p>
         <Button type="submit" size="lg" disabled={!validMinutes || recommend.isPending}>
           {recommend.isPending ? 'Finding…' : 'Find my movie'}
@@ -145,12 +181,20 @@ export function PlannerPage() {
   )
 }
 
-function PreviewText({ count, minutes, completion }: { count: number; minutes: number; completion: CompletionPreference }) {
+function PreviewText({ count, minutes, completion, availability }: { count: number; minutes: number; completion: CompletionPreference; availability: Availability }) {
   const strong = <span className="font-semibold tabular-nums text-fg">{count}</span>
-  if (completion === 'open_to_longer') return <>{strong} {count === 1 ? 'movie' : 'movies'} on your watchlist to choose from.</>
-  if (completion === 'continue_started') return <>{strong} started {count === 1 ? 'movie fits' : 'movies fit'} the time you have left.</>
-  if (count === 0) return <>Nothing fits {minutes} minutes yet. Try a little more time.</>
-  return <>{strong} {count === 1 ? 'movie fits' : 'movies fit'} in {minutes} minutes.</>
+  const narrowed = count > 3 ? " We'll pick the best 3." : ''
+  const where = availability === 'free' ? ' free to watch' : availability === 'free_or_subscribed' ? ' free or on your services' : ''
+  if (completion === 'continue_started') {
+    if (count === 0) return <>Nothing you've started{where} fits {minutes} minutes.</>
+    return <>{strong} started {count === 1 ? 'movie' : 'movies'}{where} {count === 1 ? 'fits' : 'fit'} the time you have left.{narrowed}</>
+  }
+  if (completion === 'open_to_longer') {
+    if (count === 0) return <>Nothing on your watchlist is{where} right now.</>
+    return <>{strong} {count === 1 ? 'movie' : 'movies'} on your watchlist{where} to choose from.{narrowed}</>
+  }
+  if (count === 0) return <>Nothing on your watchlist{where} fits {minutes} minutes yet.</>
+  return <>{strong} {count === 1 ? 'movie' : 'movies'} on your watchlist{where} {count === 1 ? 'fits' : 'fit'} in {minutes} minutes.{narrowed}</>
 }
 
 function PlannerBlock({ title, optional, hint, children }: { title: string; optional?: boolean; hint?: string; children: ReactNode }) {

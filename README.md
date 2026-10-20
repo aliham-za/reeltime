@@ -35,13 +35,13 @@ Open http://localhost:5173 and sign in with the seeded development account:
 |---|---|
 | `demo@reeltime.test` | `watchmore123` |
 
-The account only exists in development and comes with 16 movies on its watchlist. You can also create your own account from the sign-in page.
+The account only exists in development. Its watchlist starts with 16 movies: TMDB's current popular movies if a TMDB key is set, otherwise the fictional sample catalog below. You can also create your own account from the sign-in page.
 
 Vite proxies `/api` to Rails, so the browser only ever talks to one origin. The session cookie stays `SameSite=Lax` and `HttpOnly`, and no CORS setup is needed in development.
 
 ### Movie data (TMDB)
 
-Without credentials, ReelTime uses a **built-in sample catalog of 32 fictional movies** (`source: "local"`). They're invented titles, labelled as such in the UI, so the whole app works offline and can be tested end to end. Genres use TMDB's real genre IDs, so sample movies and imported movies share one genre table.
+Without credentials, `db:seed` creates a **built-in sample catalog of 32 fictional movies** (`source: "local"`). They're invented titles, labelled as such in the UI, so the whole app works offline and can be tested end to end. Genres use TMDB's real genre IDs, so sample movies and imported movies share one genre table.
 
 To search real movies, get a free API Read Access Token from <https://developer.themoviedb.org/docs/getting-started> and set it in `backend/.env`:
 

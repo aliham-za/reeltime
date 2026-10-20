@@ -29,3 +29,18 @@ end
 RSpec.configure do |config|
   config.include Helpers
 end
+
+module AvailabilityHelpers
+  # Stores fresh availability so specs never need TMDB.
+  def set_availability(movie, region: "US", free: [], subscription: [], rent: [])
+    to_providers = ->(list) { list.map { |id, name| { "id" => id, "name" => name, "logo_path" => "/#{id}.png" } } }
+    MovieAvailability.create!(movie:, region:, link: "https://www.themoviedb.org/movie/#{movie.id}/watch",
+                              fetched_at: Time.current,
+                              providers: { "free" => to_providers.(free), "subscription" => to_providers.(subscription),
+                                           "rent" => to_providers.(rent), "buy" => [] })
+  end
+end
+
+RSpec.configure do |config|
+  config.include AvailabilityHelpers
+end

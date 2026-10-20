@@ -11,6 +11,7 @@ import { WatchlistPage } from '../features/watchlist/WatchlistPage'
 import { PlannerPage } from '../features/planner/PlannerPage'
 import { ResultsPage } from '../features/results/ResultsPage'
 import { HistoryPage } from '../features/history/HistoryPage'
+import { SettingsPage } from '../features/settings/SettingsPage'
 
 function AuthGate() {
   const me = useQuery({ queryKey: ['me'], queryFn: api.me, staleTime: Infinity })
@@ -32,6 +33,7 @@ export const router = createBrowserRouter([
       { path: '/plan', element: <PlannerPage /> },
       { path: '/plan/results/:sessionId', element: <ResultsPage /> },
       { path: '/history', element: <HistoryPage /> },
+      { path: '/settings', element: <SettingsPage /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

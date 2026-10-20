@@ -15,7 +15,7 @@ RSpec.describe "Recommendations", type: :request do
     data = json["data"]
     expect(data["items"].map { |i| i.dig("movie", "title") }).to contain_exactly("R45", "R60", "R75")
     expect(data["candidate_count"]).to eq(3)
-    expect(data["exclusions"]).to eq("too_long" => 2, "missing_runtime" => 0)
+    expect(data["exclusions"]).to eq("too_long" => 2, "missing_runtime" => 0, "not_available" => 0)
     expect(data["items"].first).to include("rank" => 1, "headline" => be_present, "reasons" => be_present, "score_components" => be_present)
   end
 

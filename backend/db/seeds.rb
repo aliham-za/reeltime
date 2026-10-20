@@ -1,8 +1,10 @@
 # Idempotent development seeds: `bin/rails db:seed`.
 #
 # Genres use TMDB's genre IDs so locally seeded movies and TMDB imports share one genre table.
-# The sample catalog is FICTIONAL — invented titles stored with source "local" — so the app can
-# be exercised end to end without TMDB credentials. It is never presented as provider data.
+#
+# With TMDB credentials, the development account's watchlist is filled with real popular movies.
+# Without them, a FICTIONAL sample catalog (invented titles, source "local") is created instead so
+# the app still works end to end offline. It is never presented as provider data.
 
 GENRES = {
   28 => "Action", 12 => "Adventure", 16 => "Animation", 35 => "Comedy", 80 => "Crime",
@@ -51,19 +53,38 @@ SAMPLE_CATALOG = [
   ["The Unfinished Portrait", 2016, 119, %w[Mystery Drama], "An art restorer realises the painting she is cleaning was painted over a portrait of herself."]
 ].freeze
 
-genres_by_name = Genre.all.index_by(&:name)
+def seed_sample_catalog
+  genres_by_name = Genre.all.index_by(&:name)
+  SAMPLE_CATALOG.each_with_index.map do |(title, year, runtime, genre_names, overview), index|
+    movie = Movie.find_or_initialize_by(source: "local", title:)
+    movie.update!(
+      release_date: Date.new(year, 1 + (index % 12), 1),
+      runtime_minutes: runtime,
+      overview:,
+      original_title: title,
+      original_language: "en",
+      popularity: (SAMPLE_CATALOG.size - index).to_f
+    )
+    movie.genres = genre_names.map { |name| genres_by_name.fetch(name) }
+    movie
+  end
+end
 
-SAMPLE_CATALOG.each_with_index do |(title, year, runtime, genre_names, overview), index|
-  movie = Movie.find_or_initialize_by(source: "local", title:)
-  movie.update!(
-    release_date: Date.new(year, 1 + (index % 12), 1),
-    runtime_minutes: runtime,
-    overview:,
-    original_title: title,
-    original_language: "en",
-    popularity: (SAMPLE_CATALOG.size - index).to_f
-  )
-  movie.genres = genre_names.map { |name| genres_by_name.fetch(name) }
+# Imports popular TMDB movies (details call per movie, for runtime and genres).
+def seed_from_tmdb(count)
+  catalog = MovieCatalog.new
+  Tmdb::Client.new.popular["results"].first(count).filter_map do |result|
+    catalog.import(result["id"])
+  rescue Tmdb::Error => e
+    warn "Skipped TMDB movie #{result['id']}: #{e.message}"
+    nil
+  end
+end
+
+movies = if Tmdb::Client.configured?
+  seed_from_tmdb(16)
+else
+  seed_sample_catalog
 end
 
 # Development profile. Test-only credentials; never use this account outside local development.
@@ -71,14 +92,14 @@ if Rails.env.development?
   demo = User.find_or_initialize_by(email: "demo@reeltime.test")
   demo.update!(password: "watchmore123") if demo.new_record?
 
-  Movie.local.order(popularity: :desc).limit(16).each_with_index do |movie, index|
+  movies.each_with_index do |movie, index|
     demo.watchlist_items.find_or_create_by!(movie:) do |item|
       item.priority = (index % 5).zero?
-      item.added_at = (16 - index).days.ago
+      item.added_at = (movies.size - index).days.ago
     end
   end
 
   puts "Demo account: demo@reeltime.test / watchmore123"
 end
 
-puts "Seeded #{Genre.count} genres and #{Movie.local.count} sample movies."
+puts "Seeded #{Genre.count} genres and #{movies.size} #{Tmdb::Client.configured? ? 'TMDB' : 'sample'} movies."

@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { queryClient } from '../lib/query-client'
 import type { User } from '../types/api'
-import { ClockIcon, HistoryIcon, HomeIcon, ListIcon, LogoutIcon, SearchIcon } from './icons'
+import { ClockIcon, HistoryIcon, HomeIcon, ListIcon, LogoutIcon, SearchIcon, SettingsIcon } from './icons'
 
 const NAV = [
   { to: '/', label: 'Home', icon: HomeIcon, end: true },
@@ -49,8 +49,11 @@ export function AppLayout({ user }: { user: User }) {
           ))}
         </nav>
         <div className="mt-auto space-y-4 px-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-xs text-muted" title={user.email}>{user.email}</span>
+          <div className="flex items-center justify-between gap-1">
+            <span className="min-w-0 flex-1 truncate text-xs text-muted" title={user.email}>{user.email}</span>
+            <NavLink to="/settings" className={({ isActive }) => `rounded-lg p-1.5 hover:bg-elevated hover:text-fg ${isActive ? 'text-accent' : 'text-muted'}`} aria-label="Settings">
+              <SettingsIcon width={18} height={18} />
+            </NavLink>
             <button type="button" onClick={() => logout.mutate()} className="rounded-lg p-1.5 text-muted hover:bg-elevated hover:text-fg" aria-label="Sign out">
               <LogoutIcon width={18} height={18} />
             </button>
@@ -61,9 +64,14 @@ export function AppLayout({ user }: { user: User }) {
 
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line/70 bg-canvas/90 px-4 py-3 backdrop-blur md:hidden">
         <Link to="/" aria-label="ReelTime home" className="rounded-lg"><Logo /></Link>
-        <button type="button" onClick={() => logout.mutate()} className="rounded-lg p-2 text-muted hover:text-fg" aria-label="Sign out">
-          <LogoutIcon width={18} height={18} />
-        </button>
+        <div className="flex items-center">
+          <NavLink to="/settings" className={({ isActive }) => `rounded-lg p-2 hover:text-fg ${isActive ? 'text-accent' : 'text-muted'}`} aria-label="Settings">
+            <SettingsIcon width={20} height={20} />
+          </NavLink>
+          <button type="button" onClick={() => logout.mutate()} className="rounded-lg p-2 text-muted hover:text-fg" aria-label="Sign out">
+            <LogoutIcon width={18} height={18} />
+          </button>
+        </div>
       </header>
 
       <ScrollRestoration />

@@ -15,13 +15,20 @@ module Tmdb
 
     # Filtered browse across the whole catalog. TMDB stores unknown runtimes as 0, so a runtime cap
     # also requires >= 1 minute; the vote floor keeps near-empty entries out of the list.
-    def discover(page: 1, genre_id: nil, year: nil, max_runtime: nil)
+    # free_in: a country code; limits results to movies free or free-with-ads there.
+    def discover(page: 1, genre_id: nil, year: nil, max_runtime: nil, free_in: nil)
       params = { page:, sort_by: "popularity.desc", include_adult: false, "vote_count.gte": 10 }
       params[:with_genres] = genre_id if genre_id
       params[:primary_release_year] = year if year
       params.merge!("with_runtime.gte": 1, "with_runtime.lte": max_runtime) if max_runtime
+      params.merge!(watch_region: free_in, with_watch_monetization_types: "free|ads") if free_in
       get("/discover/movie", params)
     end
+
+    # Where-to-watch data (JustWatch via TMDB) for every country at once.
+    def watch_providers(tmdb_id) = get("/movie/#{Integer(tmdb_id)}/watch/providers")
+    def watch_regions = get("/watch/providers/regions")
+    def provider_catalog(region) = get("/watch/providers/movie", watch_region: region)
 
     private
 

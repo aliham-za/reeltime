@@ -51,8 +51,10 @@ module Recommendations
 
     # viewing_context is recorded but deliberately not scored: without age ratings or content
     # data there is no honest rule for "family" or "date night" yet.
+    # availability: "anywhere" | "free" | "free_or_subscribed", evaluated in `region`.
     Request = Struct.new(:available_minutes, :mood, :genre_ids, :viewing_context,
-                         :completion_preference, :include_abandoned, :limit, keyword_init: true)
+                         :completion_preference, :include_abandoned, :limit,
+                         :availability, :region, :subscribed_provider_ids, keyword_init: true)
     Candidate = Struct.new(:item, :movie, :genre_ids, :genre_names, :minutes, :continuing,
                            :score, :components, keyword_init: true)
     Pick = Struct.new(:candidate, :rank, :headline, :explanations, keyword_init: true)
@@ -65,6 +67,7 @@ module Recommendations
 
     def call
       pool = load_pool
+      load_availability(pool)
       eligible, exclusions = apply_hard_constraints(pool)
       score!(eligible)
       ranked = eligible.sort_by { |c| [-c.score, c.item.priority ? 0 : 1, c.item.added_at, c.item.id] }
@@ -76,7 +79,9 @@ module Recommendations
 
     # Cheap count for the planner preview: constraints only, no scoring.
     def eligible_count
-      apply_hard_constraints(load_pool).first.size
+      pool = load_pool
+      load_availability(pool)
+      apply_hard_constraints(pool).first.size
     end
 
     private
@@ -86,6 +91,26 @@ module Recommendations
     def available = request.available_minutes
     def strict? = request.completion_preference != "open_to_longer"
     def continuing? = request.completion_preference == "continue_started"
+    def availability_filter? = request.region.present? && request.availability.in?(%w[free free_or_subscribed])
+
+    # Stored availability is always used for explanations; TMDB is only called when it's a filter.
+    def load_availability(pool)
+      @availability = if request.region.present?
+        WatchAvailability.new(request.region).for_movies(pool.map(&:movie), fetch: availability_filter?)
+      else
+        {}
+      end
+    end
+
+    def subscribed_ids = Array(request.subscribed_provider_ids)
+
+    def watchable?(movie)
+      avail = @availability[movie.id]
+      return false unless avail
+      return true if avail.free?
+
+      request.availability == "free_or_subscribed" && (avail.provider_ids("subscription") & subscribed_ids).any?
+    end
 
     def load_pool
       statuses = continuing? ? STARTED_STATUSES.dup : BASE_STATUSES.dup
@@ -117,8 +142,12 @@ module Recommendations
     end
 
     def apply_hard_constraints(pool)
-      exclusions = { "too_long" => 0, "missing_runtime" => 0 }
+      exclusions = { "too_long" => 0, "missing_runtime" => 0, "not_available" => 0 }
       eligible = pool.select do |candidate|
+        if availability_filter? && !watchable?(candidate.movie)
+          exclusions["not_available"] += 1
+          next false
+        end
         next true unless strict?
 
         if candidate.minutes.nil?
@@ -222,6 +251,13 @@ module Recommendations
       # Skip the mood line when the only genres behind it were already named in the genre match.
       if (mood_genres = MOOD_GENRES[request.mood]) && (hit = (c.genre_names & mood_genres) - matched.map(&:name)).any?
         lines << { code: "mood_match", text: "#{hit.first} suits a #{MOOD_LABELS[request.mood]} mood." }
+      end
+      if (avail = @availability[c.movie.id])
+        if (free = avail.providers_in("free").first)
+          lines << { code: "free_to_watch", text: "Free to watch on #{free['name']}." }
+        elsif (mine = avail.providers_in("subscription").find { |p| subscribed_ids.include?(p["id"]) })
+          lines << { code: "on_your_service", text: "On #{mine['name']}, which you have." }
+        end
       end
       lines << { code: "priority", text: "You marked this as a priority." } if c.item.priority
       lines << { code: "personal_rating", text: "You rated it #{c.item.personal_rating}/10." } if c.item.personal_rating

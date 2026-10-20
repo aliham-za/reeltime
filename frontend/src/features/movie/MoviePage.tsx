@@ -7,6 +7,7 @@ import { formatDate, formatRuntime, OUTCOME_LABELS, STATUS_LABELS } from '../../
 import { WATCH_STATUSES, type Movie, type WatchSession, type WatchStatus } from '../../types/api'
 import { Button, ErrorState, inputClass, Skeleton } from '../../components/ui'
 import { Poster, StatusBadge } from '../../components/movies'
+import { WhereToWatch } from '../../components/where-to-watch'
 import { ConfirmDialog } from '../../components/dialog'
 import { PlayIcon, PlusIcon, StarIcon } from '../../components/icons'
 import { useToast } from '../../components/toast'
@@ -86,6 +87,7 @@ function MovieDetails({ movie }: { movie: Movie }) {
             {movie.genres.map((g) => <span key={g.id} className="rounded-md bg-elevated px-2.5 py-1 text-sm text-fg-2">{g.name}</span>)}
           </div>
           {movie.overview && <p className="mt-6 leading-relaxed text-fg-2">{movie.overview}</p>}
+          {movie.tmdb_id && <WhereToWatch movieId={movieId} />}
 
           <div className="mt-8 flex flex-wrap gap-2">
             {item ? (

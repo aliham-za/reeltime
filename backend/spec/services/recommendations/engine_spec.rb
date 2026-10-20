@@ -20,7 +20,7 @@ RSpec.describe Recommendations::Engine do
 
       expect(titles(result)).to contain_exactly("R45", "R60", "R75")
       expect(result.eligible_count).to eq(3)
-      expect(result.exclusions).to eq("too_long" => 2, "missing_runtime" => 0)
+      expect(result.exclusions).to eq("too_long" => 2, "missing_runtime" => 0, "not_available" => 0)
     end
 
     it "does not let a strong preference score override the time limit" do
@@ -178,4 +178,43 @@ RSpec.describe Recommendations::Engine do
       expect(titles(run)).to eq(["Only"])
     end
   end
+
+  describe "where to watch" do
+    let(:free_movie) { create_movie(title: "Free one", runtime: 60, tmdb_id: 1) }
+    let(:netflix_movie) { create_movie(title: "On Netflix", runtime: 60, tmdb_id: 2) }
+    let(:rental) { create_movie(title: "Rent only", runtime: 60, tmdb_id: 3) }
+
+    before do
+      [free_movie, netflix_movie, rental].each { |m| add_to_watchlist(user, m) }
+      set_availability(free_movie, free: [[73, "Tubi"]])
+      set_availability(netflix_movie, subscription: [[8, "Netflix"]])
+      set_availability(rental, rent: [[2, "Apple TV"]])
+      add_to_watchlist(user, create_movie(title: "Sample, not on TMDB", runtime: 60))
+    end
+
+    it "keeps only free movies when asked for free" do
+      result = run(availability: "free", region: "US", limit: 5)
+      expect(titles(result)).to eq(["Free one"])
+      expect(result.exclusions["not_available"]).to eq(3)
+      expect(result.picks.first.explanations.map { |e| e[:text] }).to include("Free to watch on Tubi.")
+    end
+
+    it "adds the user's own services for free_or_subscribed" do
+      result = run(availability: "free_or_subscribed", region: "US", subscribed_provider_ids: [8], limit: 5)
+      expect(titles(result)).to contain_exactly("Free one", "On Netflix")
+      netflix = result.picks.find { |p| p.candidate.movie.title == "On Netflix" }
+      expect(netflix.explanations.map { |e| e[:text] }).to include("On Netflix, which you have.")
+    end
+
+    it "does not filter by availability by default, but still mentions free options it knows about" do
+      result = run(region: "US", limit: 5)
+      expect(result.eligible_count).to eq(4)
+      expect(result.picks.flat_map(&:explanations).map { |e| e[:code] }).to include("free_to_watch")
+    end
+
+    it "treats a different country's availability as unknown" do
+      expect(run(availability: "free", region: "GB").picks).to be_empty
+    end
+  end
 end
+

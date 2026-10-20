@@ -1,4 +1,4 @@
-import type { Mood, Outcome, ViewingContext, WatchStatus } from '../types/api'
+import type { Availability, Mood, Outcome, ViewingContext, WatchStatus } from '../types/api'
 
 export function formatRuntime(minutes: number | null | undefined): string {
   if (!minutes) return 'Runtime unknown'
@@ -49,3 +49,11 @@ export function formatDate(iso: string | null | undefined): string {
 export function posterUrl(path: string | null, size: 'w342' | 'w500' | 'w780' = 'w342'): string | null {
   return path ? `https://image.tmdb.org/t/p/${size}${path}` : null
 }
+
+export const AVAILABILITY_LABELS: Record<Availability, string> = {
+  anywhere: 'Anywhere',
+  free: 'Free only',
+  free_or_subscribed: 'Free or my services',
+}
+
+export const providerLogoUrl = (path: string | null) => (path ? `https://image.tmdb.org/t/p/w92${path}` : null)

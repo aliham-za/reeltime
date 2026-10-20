@@ -72,7 +72,7 @@ RSpec.describe "Movies", type: :request do
 
       get "/api/v1/movies/discover", params: { genre_id: comedy.id, year: 2021, max_runtime: 90, page: 2 }
 
-      expect(client).to have_received(:discover).with(page: 2, genre_id: 35, year: 2021, max_runtime: 90)
+      expect(client).to have_received(:discover).with(page: 2, genre_id: 35, year: 2021, max_runtime: 90, free_in: nil)
       expect(json["data"].first).to include("title" => "Remote", "tmdb_id" => 7)
       expect(json["meta"]).to include("source" => "tmdb", "total_pages" => 500)
     end

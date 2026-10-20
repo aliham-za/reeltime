@@ -7,9 +7,13 @@ Rails.application.routes.draw do
       post "auth/login", to: "auth#login"
       delete "auth/logout", to: "auth#logout"
       get "me", to: "auth#me"
+      patch "me", to: "auth#update_me"
 
       resources :genres, only: :index
+      get "watch_providers/regions", to: "watch_providers#regions"
+      get "watch_providers", to: "watch_providers#index"
       resources :movies, only: %i[index show] do
+        get :availability, on: :member
         collection do
           get :search
           get :popular

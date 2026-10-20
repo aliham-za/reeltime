@@ -34,6 +34,15 @@ module Api
         render json: { data: ApiJson.user(current_user) }
       end
 
+      # Viewing preferences: country and subscribed services.
+      def update_me
+        if current_user.update(params.require(:user).permit(:country, subscribed_provider_ids: []))
+          render json: { data: ApiJson.user(current_user) }
+        else
+          render_invalid(current_user)
+        end
+      end
+
       private
 
       def sign_in(user)

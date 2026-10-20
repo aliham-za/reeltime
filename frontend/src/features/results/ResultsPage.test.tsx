@@ -20,7 +20,7 @@ function session(overrides: Partial<RecommendationSession> = {}): Recommendation
   return {
     id: 7, created_at: '', algorithm_version: 'rules-v1', candidate_count: 1, selected_movie_id: null,
     exclusions: null,
-    constraints: { available_minutes: 75, mood: null, genre_ids: [4], viewing_context: null, completion_preference: 'single_sitting', include_abandoned: false },
+    constraints: { available_minutes: 75, mood: null, genre_ids: [4], viewing_context: null, completion_preference: 'single_sitting', include_abandoned: false, availability: 'anywhere', region: 'US' },
     items: [{
       id: 1, rank: 1, total_score: 0.9, score_components: {}, headline: 'Fits your 75-minute window', selected_at: null, dismissed_at: null,
       reasons: [{ code: 'runtime_fit', text: 'Fits your 75-minute window with 5 minutes to spare.' }, { code: 'genre_match', text: 'Matches your pick: Comedy.' }],
@@ -72,4 +72,44 @@ it('shows an error with retry when loading fails', async () => {
   renderResults()
   expect(await screen.findByRole('alert')).toHaveTextContent('Server unavailable')
   expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+})
+
+function fivePicks(dismissedRanks: number[] = []) {
+  const base = session()
+  const template = base.items[0]
+  return session({
+    candidate_count: 9,
+    items: [1, 2, 3, 4, 5].map((rank) => ({
+      ...template, id: rank, rank, movie: movie(100 + rank, `Pick ${rank}`),
+      dismissed_at: dismissedRanks.includes(rank) ? '2026-10-21T00:00:00Z' : null,
+    })),
+  })
+}
+const pickTitles = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
+
+it('shows the top 3 picks and reveals the rest on request', async () => {
+  mocked.recommendation.mockResolvedValue(fivePicks())
+  const user = userEvent.setup()
+  renderResults()
+
+  await screen.findByRole('heading', { name: 'Pick 1' })
+  expect(pickTitles()).toEqual(['Pick 1', 'Pick 2', 'Pick 3'])
+
+  await user.click(screen.getByRole('button', { name: 'Show 2 more options' }))
+  expect(pickTitles()).toEqual(['Pick 1', 'Pick 2', 'Pick 3', 'Pick 4', 'Pick 5'])
+  expect(screen.queryByRole('button', { name: /more option/ })).not.toBeInTheDocument()
+})
+
+it('fills a "Not tonight" gap with the next-ranked pick', async () => {
+  mocked.recommendation.mockResolvedValue(fivePicks())
+  mocked.dismissRecommendation.mockResolvedValue(fivePicks([2]))
+  const user = userEvent.setup()
+  renderResults()
+
+  await screen.findByRole('heading', { name: 'Pick 2' })
+  await user.click(screen.getAllByRole('button', { name: 'Not tonight' })[1])
+
+  await waitFor(() => expect(pickTitles()).toEqual(['Pick 1', 'Pick 3', 'Pick 4']))
+  expect(mocked.dismissRecommendation).toHaveBeenCalledWith(7, 102)
+  expect(screen.getByRole('button', { name: 'Show 1 more option' })).toBeInTheDocument()
 })

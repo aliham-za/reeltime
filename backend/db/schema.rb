@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_10_21_000001) do
+ActiveRecord::Schema[7.2].define(version: 2026_10_21_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -21,6 +21,15 @@ ActiveRecord::Schema[7.2].define(version: 2026_10_21_000001) do
     t.datetime "updated_at", null: false
     t.index ["external_id"], name: "index_genres_on_external_id", unique: true
     t.index ["name"], name: "index_genres_on_name", unique: true
+  end
+
+  create_table "movie_availabilities", force: :cascade do |t|
+    t.bigint "movie_id", null: false
+    t.string "region", limit: 2, null: false
+    t.string "link"
+    t.jsonb "providers", default: {}, null: false
+    t.datetime "fetched_at", null: false
+    t.index ["movie_id", "region"], name: "index_movie_availabilities_on_movie_id_and_region", unique: true
   end
 
   create_table "movie_genres", force: :cascade do |t|
@@ -79,6 +88,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_10_21_000001) do
     t.datetime "selected_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "availability", default: "anywhere", null: false
+    t.string "region", limit: 2
     t.index ["selected_movie_id"], name: "index_recommendation_sessions_on_selected_movie_id"
     t.index ["user_id"], name: "index_recommendation_sessions_on_user_id"
   end
@@ -88,6 +99,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_10_21_000001) do
     t.string "password_digest", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "country", limit: 2, default: "US", null: false
+    t.integer "subscribed_provider_ids", default: [], null: false, array: true
     t.index "lower((email)::text)", name: "index_users_on_lower_email", unique: true
   end
 
@@ -132,6 +145,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_10_21_000001) do
     t.check_constraint "status::text = ANY (ARRAY['want_to_watch'::character varying, 'watching'::character varying, 'paused'::character varying, 'watched'::character varying, 'abandoned'::character varying]::text[])", name: "watchlist_items_status_valid"
   end
 
+  add_foreign_key "movie_availabilities", "movies", on_delete: :cascade
   add_foreign_key "movie_genres", "genres", on_delete: :cascade
   add_foreign_key "movie_genres", "movies", on_delete: :cascade
   add_foreign_key "recommendation_items", "movies"
