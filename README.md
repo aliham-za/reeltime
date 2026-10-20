@@ -53,6 +53,14 @@ The token stays on the server. Search and popular results come from TMDB (cached
 
 This product uses the TMDB API but is not endorsed or certified by TMDB.
 
+### Where to watch
+
+Movie pages show where a movie is **free**, on **subscription**, or for **rent/buy** in the user's country, using TMDB's watch-provider data (sourced from JustWatch, credited in the UI). Users set their country and subscriptions in **Settings**. The planner can then limit picks to *Free only* or *Free or my services*, and Discover has a *Free to watch* filter.
+
+Availability is stored per movie and country in `movie_availabilities` and refreshed after 24 hours. TMDB is only called when a filter needs fresh data, and those calls run in parallel. Everything links to legal services only; ReelTime doesn't host, scrape or link to unlicensed streams.
+
+TMDB's discover runtime filter is loose: it returns 95–137-minute movies for "under 90". So when Discover has a runtime cap, ReelTime checks each result's real runtime (cached) and draws on two TMDB pages per app page, so pages stay full.
+
 ## Tests
 
 ```bash
@@ -101,9 +109,12 @@ All endpoints are under `/api/v1`, return `{ data, meta? }`, and report errors a
 | `POST auth/register` · `POST auth/login` · `DELETE auth/logout` · `GET me` | Session auth (bcrypt; rate-limited) |
 | `GET genres` | Genre list |
 | `GET movies` · `GET movies/:id` · `GET movies/search?q=` · `GET movies/popular` · `GET movies/tmdb/:tmdb_id` | Catalog; the last one imports from TMDB |
-| `GET movies/discover` | Browse all of TMDB by `genre_id`, `year` and `max_runtime` (minutes); falls back to filtering local movies |
+| `GET movies/discover` | Browse all of TMDB by `genre_id`, `year`, `max_runtime` (minutes) and `free`; falls back to filtering local movies |
+| `GET movies/:id/availability` | Where to watch in the user's country, grouped free / subscription / rent / buy |
+| `PATCH me` | `country` (ISO code) and `subscribed_provider_ids[]` |
+| `GET watch_providers/regions` · `GET watch_providers?region=` | Countries and streaming services for Settings |
 | `GET/POST watchlist` · `GET/PATCH/DELETE watchlist/:id` · `GET watchlist/summary` | `status`, `genre_id`, `q`, `sort` (`recent`, `title`, `runtime`, `priority`), `page`, `per_page` |
-| `POST recommendations` · `GET recommendations/:id` · `GET recommendations/preview` | Body: `available_minutes` (10–360), `mood`, `genre_ids[]`, `viewing_context`, `completion_preference`, `include_abandoned`, `limit` (1–5) |
+| `POST recommendations` · `GET recommendations/:id` · `GET recommendations/preview` | Body: `available_minutes` (10–360), `mood`, `genre_ids[]`, `viewing_context`, `completion_preference`, `availability` (`anywhere`, `free`, `free_or_subscribed`), `include_abandoned`, `limit` (1–5) |
 | `POST recommendations/:id/select` · `POST recommendations/:id/dismiss` | Choose a pick / "Not tonight" |
 | `GET/POST watch_sessions` · `GET/PATCH watch_sessions/:id` | Start (or resume) an attempt, record its outcome, or correct one |
 | `GET insights/overview` | Only shown with enough data (averages need ≥3 finished movies) |

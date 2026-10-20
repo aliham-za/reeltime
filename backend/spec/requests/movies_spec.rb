@@ -70,11 +70,28 @@ RSpec.describe "Movies", type: :request do
       allow(Tmdb::Client).to receive(:new).and_return(client)
       allow(client).to receive(:discover).and_return("results" => [{ "id" => 7, "title" => "Remote", "genre_ids" => [35] }], "page" => 2, "total_pages" => 900)
 
-      get "/api/v1/movies/discover", params: { genre_id: comedy.id, year: 2021, max_runtime: 90, page: 2 }
+      get "/api/v1/movies/discover", params: { genre_id: comedy.id, year: 2021, page: 2 }
 
-      expect(client).to have_received(:discover).with(page: 2, genre_id: 35, year: 2021, max_runtime: 90, free_in: nil)
+      expect(client).to have_received(:discover).with(page: 2, genre_id: 35, year: 2021, max_runtime: nil, free_in: nil)
       expect(json["data"].first).to include("title" => "Remote", "tmdb_id" => 7)
       expect(json["meta"]).to include("source" => "tmdb", "total_pages" => 500)
+    end
+
+    it "checks real runtimes because TMDB's runtime filter is loose" do
+      allow(Tmdb::Client).to receive(:configured?).and_return(true)
+      client = instance_double(Tmdb::Client)
+      allow(Tmdb::Client).to receive(:new).and_return(client)
+      results = { 3 => [{ "id" => 1, "title" => "Short" }, { "id" => 2, "title" => "Too long" }],
+                  4 => [{ "id" => 3, "title" => "No runtime" }, { "id" => 4, "title" => "Also short" }] }
+      allow(client).to receive(:discover) { |page:, **| { "results" => results.fetch(page), "page" => page, "total_pages" => 9 } }
+      allow(client).to receive(:movie) { |id| { "runtime" => { 1 => 85, 2 => 137, 3 => 0, 4 => 90 }.fetch(id) } }
+
+      get "/api/v1/movies/discover", params: { max_runtime: 90, page: 2 }
+
+      expect(client).to have_received(:discover).with(page: 3, genre_id: nil, year: nil, max_runtime: 90, free_in: nil)
+      expect(client).to have_received(:discover).with(page: 4, genre_id: nil, year: nil, max_runtime: 90, free_in: nil)
+      expect(json["data"].map { |m| [m["title"], m["runtime_minutes"]] }).to eq([["Short", 85], ["Also short", 90]])
+      expect(json.dig("meta", "total_pages")).to eq(5)
     end
 
     it "falls back to filtered local movies when TMDB fails" do

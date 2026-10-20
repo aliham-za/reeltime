@@ -70,11 +70,12 @@ class MovieCatalog
 
   # With a runtime cap most of each TMDB page gets dropped (see enforce_runtime), so one app page
   # draws on RUNTIME_PAGE_SPAN TMDB pages to still show a useful number of movies.
-  RUNTIME_PAGE_SPAN = 3
+  RUNTIME_PAGE_SPAN = 2
 
   def merged_discover(page, filters)
     first = (page.to_i.clamp(1, 500) - 1) * RUNTIME_PAGE_SPAN + 1
-    pages = (first...first + RUNTIME_PAGE_SPAN).select { |n| n <= 500 }.map { |n| @client.discover(page: n, **filters) }
+    pages = (first...first + RUNTIME_PAGE_SPAN).select { |n| n <= 500 }
+                                                .map { |n| Thread.new { @client.discover(page: n, **filters) } }.map(&:value)
     total = [pages.first["total_pages"].to_i, 500].min
     { "results" => pages.flat_map { |d| d["results"] }.uniq { |r| r["id"] }, "page" => page.to_i,
       "total_pages" => (total / RUNTIME_PAGE_SPAN.to_f).ceil }
@@ -83,12 +84,10 @@ class MovieCatalog
   # TMDB's with_runtime filter doesn't match the runtime on its own movie details (it returns 95-137
   # minute movies for "under 90"), so check each result's real runtime and drop what's over the cap.
   # Details are cached by the client; unknown runtimes are dropped since they can't be promised.
-  # ponytail: one details call per uncached result (8 at a time); pages can come back shorter than 20.
+  # ponytail: one parallel details call per uncached result (max ~40); move to stored runtimes if this gets hot.
   def enforce_runtime(page, max_runtime)
     unknown = page.results.reject(&:runtime_minutes)
-    runtimes = unknown.each_slice(8).flat_map do |batch|
-      batch.map { |movie| Thread.new { [movie, (@client.movie(movie.tmdb_id)["runtime"] rescue nil)] } }.map(&:value)
-    end
+    runtimes = unknown.map { |movie| Thread.new { [movie, (@client.movie(movie.tmdb_id)["runtime"] rescue nil)] } }.map(&:value)
     runtimes.each { |movie, runtime| movie.runtime_minutes = runtime.to_i.positive? ? runtime : nil }
     page.results = page.results.select { |m| m.runtime_minutes && m.runtime_minutes <= max_runtime }
     page
