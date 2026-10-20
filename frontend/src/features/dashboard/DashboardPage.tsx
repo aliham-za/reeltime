@@ -4,17 +4,18 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { formatRuntime } from '../../lib/format'
 import type { WatchSession } from '../../types/api'
-import { Button, ButtonLink, EmptyState, ErrorState, PosterGridSkeleton, Section, Skeleton } from '../../components/ui'
-import { MovieCard, movieGridClass, movieHref, Poster } from '../../components/movies'
+import { ButtonLink, EmptyState, ErrorState, PosterGridSkeleton, Section, Skeleton } from '../../components/ui'
+import { MovieCard, movieRailClass } from '../../components/movies'
 import { ClockIcon, ListIcon } from '../../components/icons'
 import { CompletionDialog } from '../history/CompletionDialog'
+import { NowWatchingCard } from '../history/NowWatchingCard'
 
 export function DashboardPage() {
   const [reporting, setReporting] = useState<WatchSession | null>(null)
   const summary = useQuery({ queryKey: ['watchlist-summary'], queryFn: api.watchlistSummary })
-  const recent = useQuery({ queryKey: ['watchlist', 'recent'], queryFn: () => api.watchlist({ sort: 'recent', per_page: 6 }) })
+  const recent = useQuery({ queryKey: ['watchlist', 'recent'], queryFn: () => api.watchlist({ sort: 'recent', per_page: 12 }) })
   const open = useQuery({ queryKey: ['watch-sessions', 'open'], queryFn: () => api.watchSessions({ outcome: 'in_progress' }) })
-  const watched = useQuery({ queryKey: ['watch-sessions', 'recently-completed'], queryFn: () => api.watchSessions({ outcome: 'completed', per_page: 6 }) })
+  const watched = useQuery({ queryKey: ['watch-sessions', 'recently-completed'], queryFn: () => api.watchSessions({ outcome: 'completed', per_page: 12 }) })
   const insights = useQuery({ queryKey: ['insights'], queryFn: api.insights })
 
   if (summary.error) return <ErrorState error={summary.error} onRetry={() => summary.refetch()} />
@@ -52,16 +53,7 @@ export function DashboardPage() {
           {(open.data?.data.length ?? 0) > 0 && (
             <Section title="Watching now" action={<Link to="/history" className="text-sm text-fg-2 hover:text-fg">History</Link>}>
               <div className="grid gap-3 lg:grid-cols-2">
-                {open.data!.data.map((ws) => (
-                  <div key={ws.id} className="flex items-center gap-4 rounded-2xl border border-accent/40 bg-card p-3">
-                    <Link to={movieHref(ws.movie)} className="w-14 shrink-0"><Poster movie={ws.movie} /></Link>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold">{ws.movie.title}</p>
-                      <p className="text-sm tabular-nums text-fg-2">{formatRuntime(ws.movie.runtime_minutes)}</p>
-                    </div>
-                    <Button variant="secondary" onClick={() => setReporting(ws)}>How did it go?</Button>
-                  </div>
-                ))}
+                {open.data!.data.map((ws) => <NowWatchingCard key={ws.id} session={ws} onReport={setReporting} />)}
               </div>
             </Section>
           )}
@@ -69,16 +61,19 @@ export function DashboardPage() {
           <Section title="Fits your evening">
             <div className="grid gap-3 sm:grid-cols-3">
               {Object.entries(s.fits_window).map(([minutes, count]) => (
+                // An empty window links to Discover pre-filtered to that length instead of an empty planner.
                 <Link
                   key={minutes}
-                  to={`/plan?minutes=${minutes}`}
+                  to={count > 0 ? `/plan?minutes=${minutes}` : `/discover?runtime=${minutes}`}
                   className="group rounded-2xl border border-line bg-card p-5 transition-colors hover:border-accent/50"
                 >
                   <p className="text-sm text-fg-2">Got <span className="tabular-nums text-fg">{formatRuntime(Number(minutes))}</span>?</p>
-                  <p className="mt-1 text-xl font-semibold">
-                    <span className="tabular-nums">{count}</span> {count === 1 ? 'movie fits' : 'movies fit'}
+                  <p className={`mt-1 text-xl font-semibold ${count === 0 ? 'text-fg-2' : ''}`}>
+                    {count === 0 ? 'Nothing fits yet' : <><span className="tabular-nums">{count}</span> {count === 1 ? 'movie fits' : 'movies fit'}</>}
                   </p>
-                  <p className="mt-3 text-sm text-accent opacity-80 group-hover:opacity-100">Plan this →</p>
+                  <p className="mt-3 text-sm text-accent opacity-80 group-hover:opacity-100">
+                    {count === 0 ? `Find movies under ${formatRuntime(Number(minutes))} →` : 'Plan this →'}
+                  </p>
                 </Link>
               ))}
             </div>
@@ -86,13 +81,16 @@ export function DashboardPage() {
 
           <Section title="Recently added" action={<Link to="/watchlist" className="text-sm text-fg-2 hover:text-fg">See all</Link>}>
             {recent.isPending ? <PosterGridSkeleton /> : recent.error ? <ErrorState error={recent.error} onRetry={() => recent.refetch()} /> : (
-              <div className={movieGridClass}>{recent.data.data.map((i) => <MovieCard key={i.id} movie={i.movie} status={i.status} />)}</div>
+              <div className={movieRailClass}>
+                {/* "Want to watch" is the default for everything here, so only other statuses get a badge. */}
+                {recent.data.data.map((i) => <MovieCard key={i.id} movie={i.movie} status={i.status === 'want_to_watch' ? undefined : i.status} />)}
+              </div>
             )}
           </Section>
 
           {(watched.data?.data.length ?? 0) > 0 && (
             <Section title="Recently watched">
-              <div className={movieGridClass}>
+              <div className={movieRailClass}>
                 {/* One card per movie even if it was finished more than once. */}
                 {[...new Map(watched.data!.data.map((ws) => [ws.movie.id, ws])).values()].map((ws) => <MovieCard key={ws.id} movie={ws.movie} />)}
               </div>

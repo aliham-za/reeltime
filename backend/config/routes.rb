@@ -13,6 +13,7 @@ Rails.application.routes.draw do
         collection do
           get :search
           get :popular
+          get :discover
           get "tmdb/:tmdb_id", action: :tmdb, as: :tmdb
         end
       end

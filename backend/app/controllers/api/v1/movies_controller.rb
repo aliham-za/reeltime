@@ -1,7 +1,7 @@
 module Api
   module V1
     class MoviesController < ApplicationController
-      rate_limit to: 60, within: 1.minute, only: %i[search popular tmdb],
+      rate_limit to: 60, within: 1.minute, only: %i[search popular discover tmdb],
                  with: -> { render_error(:too_many_requests, "Slow down a little — too many searches.") }
 
       # Movies stored in ReelTime (imported or sample catalog).
@@ -26,6 +26,20 @@ module Api
 
       def popular
         render_page catalog.popular(page: page_params.first)
+      end
+
+      # Filtered browse: genre_id (ReelTime genre id), year, max_runtime (minutes). All optional.
+      def discover
+        genre = Genre.find_by(id: params[:genre_id]) if params[:genre_id].present?
+        return render_error(:unprocessable_content, "Unknown genre", code: "validation_failed") if params[:genre_id].present? && genre.nil?
+
+        year = params[:year].presence&.to_i
+        return render_error(:unprocessable_content, "Year must be between 1900 and #{Date.current.year + 2}", code: "validation_failed") if year && !year.between?(1900, Date.current.year + 2)
+
+        max_runtime = params[:max_runtime].presence&.to_i
+        return render_error(:unprocessable_content, "Maximum runtime must be between 10 and 360 minutes", code: "validation_failed") if max_runtime && !max_runtime.between?(10, 360)
+
+        render_page catalog.discover(genre:, year:, max_runtime:, page: page_params.first)
       end
 
       # Imports a TMDB movie (with runtime and genres) and returns the local record.

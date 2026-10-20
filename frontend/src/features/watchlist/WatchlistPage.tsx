@@ -45,9 +45,9 @@ export function WatchlistPage() {
       />
 
       <div className="mb-8 space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="grid grid-cols-2 gap-3 sm:flex">
           <label className="sr-only" htmlFor="wl-search">Search your watchlist</label>
-          <input id="wl-search" type="search" placeholder="Search your watchlist" value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }} className={`${inputClass} sm:max-w-xs`} />
+          <input id="wl-search" type="search" placeholder="Search your watchlist" value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }} className={`${inputClass} col-span-2 sm:max-w-xs`} />
           <label className="sr-only" htmlFor="wl-genre">Genre</label>
           <select id="wl-genre" value={genreId} onChange={(e) => resetPage(setGenreId)(e.target.value ? Number(e.target.value) : '')} className={`${inputClass} sm:w-44`}>
             <option value="">All genres</option>
@@ -58,7 +58,7 @@ export function WatchlistPage() {
             {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </div>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by status">
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 [&>*]:shrink-0" role="group" aria-label="Filter by status">
           <Chip selected={status === ''} onClick={() => resetPage(setStatus)('')}>All</Chip>
           {WATCH_STATUSES.map((s) => <Chip key={s} selected={status === s} onClick={() => resetPage(setStatus)(s)}>{STATUS_LABELS[s]}</Chip>)}
         </div>
@@ -90,7 +90,7 @@ export function WatchlistPage() {
                       aria-pressed={item.priority}
                       aria-label={item.priority ? `Remove priority from ${item.movie.title}` : `Mark ${item.movie.title} as a priority`}
                       onClick={() => update.mutate({ id: item.id, priority: !item.priority })}
-                      className={`grid h-8 w-8 place-items-center rounded-lg border border-line bg-canvas/85 backdrop-blur ${item.priority ? 'text-accent' : 'text-fg-2 hover:text-fg'}`}
+                      className={`grid h-9 w-9 place-items-center rounded-lg border border-line bg-canvas/85 backdrop-blur ${item.priority ? 'text-accent' : 'text-fg-2 hover:text-fg'}`}
                     >
                       <StarIcon filled={item.priority} width={15} height={15} />
                     </button>
@@ -98,7 +98,7 @@ export function WatchlistPage() {
                       type="button"
                       aria-label={`Remove ${item.movie.title} from watchlist`}
                       onClick={() => setRemoving(item)}
-                      className="grid h-8 w-8 place-items-center rounded-lg border border-line bg-canvas/85 text-fg-2 backdrop-blur hover:text-danger"
+                      className="grid h-9 w-9 place-items-center rounded-lg border border-line bg-canvas/85 text-fg-2 backdrop-blur hover:text-danger"
                     >
                       <CloseIcon width={15} height={15} />
                     </button>

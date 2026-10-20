@@ -13,6 +13,16 @@ module Tmdb
     def popular(page: 1) = get("/movie/popular", page:)
     def movie(tmdb_id) = get("/movie/#{Integer(tmdb_id)}")
 
+    # Filtered browse across the whole catalog. TMDB stores unknown runtimes as 0, so a runtime cap
+    # also requires >= 1 minute; the vote floor keeps near-empty entries out of the list.
+    def discover(page: 1, genre_id: nil, year: nil, max_runtime: nil)
+      params = { page:, sort_by: "popularity.desc", include_adult: false, "vote_count.gte": 10 }
+      params[:with_genres] = genre_id if genre_id
+      params[:primary_release_year] = year if year
+      params.merge!("with_runtime.gte": 1, "with_runtime.lte": max_runtime) if max_runtime
+      get("/discover/movie", params)
+    end
+
     private
 
     def get(path, params = {})

@@ -4,13 +4,14 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { invalidateLibrary } from '../../lib/query-client'
 import { formatDate, formatRuntime, OUTCOME_LABELS, STATUS_LABELS } from '../../lib/format'
-import { WATCH_STATUSES, type Movie, type WatchStatus } from '../../types/api'
+import { WATCH_STATUSES, type Movie, type WatchSession, type WatchStatus } from '../../types/api'
 import { Button, ErrorState, inputClass, Skeleton } from '../../components/ui'
 import { Poster, StatusBadge } from '../../components/movies'
 import { ConfirmDialog } from '../../components/dialog'
 import { PlayIcon, PlusIcon, StarIcon } from '../../components/icons'
 import { useToast } from '../../components/toast'
 import { useWatchlistActions } from '../watchlist/useWatchlistActions'
+import { CompletionDialog } from '../history/CompletionDialog'
 
 export function MoviePage() {
   const id = Number(useParams().id)
@@ -47,6 +48,8 @@ function MovieDetails({ movie }: { movie: Movie }) {
 
   const attempts = useQuery({ queryKey: ['watch-sessions', 'movie', movieId], queryFn: () => api.watchSessions({ movie_id: movieId }) })
   const item = movie.watchlist_item
+  const openAttempt = attempts.data?.data.find((s) => s.outcome === 'in_progress') ?? null
+  const [reporting, setReporting] = useState<WatchSession | null>(null)
 
   const start = useMutation({
     mutationFn: () => api.startWatching({ movie_id: movieId }),
@@ -69,7 +72,7 @@ function MovieDetails({ movie }: { movie: Movie }) {
         </div>
       )}
       <div className="flex flex-col gap-8 md:flex-row">
-        <Poster movie={movie} size="w500" className="mx-auto w-52 shrink-0 md:mx-0 md:w-64" />
+        <Poster movie={movie} size="w500" className="mx-auto w-40 shrink-0 sm:w-52 md:mx-0 md:w-64" />
         <div className="max-w-2xl flex-1">
           {item && <StatusBadge status={item.status} />}
           <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">{movie.title}</h1>
@@ -87,15 +90,16 @@ function MovieDetails({ movie }: { movie: Movie }) {
           <div className="mt-8 flex flex-wrap gap-2">
             {item ? (
               <>
-                {item.status !== 'watched' && (
+                {openAttempt ? (
+                  <Button size="lg" onClick={() => setReporting(openAttempt)}>How did it go?</Button>
+                ) : item.status !== 'watched' && (
                   <Button size="lg" onClick={() => start.mutate()} disabled={start.isPending}>
-                    <PlayIcon width={16} height={16} /> {item.status === 'watching' || item.status === 'paused' ? 'Resume watching' : 'Start watching'}
+                    <PlayIcon width={16} height={16} /> {item.status === 'paused' ? 'Resume watching' : 'Start watching'}
                   </Button>
                 )}
                 <Button variant="secondary" size="lg" aria-pressed={item.priority} onClick={() => update.mutate({ id: item.id, priority: !item.priority })}>
                   <StarIcon filled={item.priority} width={16} height={16} className={item.priority ? 'text-accent' : ''} /> {item.priority ? 'Priority' : 'Mark as priority'}
                 </Button>
-                <Button variant="ghost" size="lg" onClick={() => setConfirmRemove(true)}>Remove</Button>
               </>
             ) : (
               <Button size="lg" onClick={() => add.mutate(movie)} disabled={add.isPending}><PlusIcon width={16} height={16} /> Add to watchlist</Button>
@@ -124,6 +128,12 @@ function MovieDetails({ movie }: { movie: Movie }) {
             </div>
           )}
 
+          {item && (
+            <button type="button" onClick={() => setConfirmRemove(true)} className="mt-4 text-sm text-muted underline-offset-4 hover:text-danger hover:underline">
+              Remove from watchlist
+            </button>
+          )}
+
           {(attempts.data?.data.length ?? 0) > 0 && (
             <section className="mt-10">
               <h2 className="mb-3 text-base font-semibold">Your attempts</h2>
@@ -140,6 +150,7 @@ function MovieDetails({ movie }: { movie: Movie }) {
         </div>
       </div>
 
+      <CompletionDialog session={reporting} onClose={() => setReporting(null)} />
       <ConfirmDialog
         open={confirmRemove}
         title="Remove from watchlist?"

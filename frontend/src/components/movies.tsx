@@ -92,3 +92,6 @@ export function MovieCard({ movie, status, badge, actions, footer }: { movie: Mo
 }
 
 export const movieGridClass = 'grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'
+/** One scrollable row: short previews never leave orphaned half-rows. Bleeds to the screen edge on mobile. */
+export const movieRailClass =
+  '-mx-4 flex snap-x scroll-px-4 gap-4 overflow-x-auto px-4 pb-3 sm:mx-0 sm:scroll-px-0 sm:px-0 [&>*]:w-36 [&>*]:shrink-0 [&>*]:snap-start sm:[&>*]:w-44'

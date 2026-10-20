@@ -62,6 +62,8 @@ export const api = {
   tmdbMovie: (tmdbId: number) => get<One<Movie>>(`/movies/tmdb/${tmdbId}`).then((r) => r.data),
   searchMovies: (q: string, page = 1) => get<Paged<Movie>>('/movies/search', { q, page }),
   popularMovies: (page = 1) => get<Paged<Movie>>('/movies/popular', { page }),
+  discoverMovies: (filters: { genre_id?: number; year?: number; max_runtime?: number }, page = 1) =>
+    get<Paged<Movie>>('/movies/discover', { ...filters, page }),
 
   watchlist: (query: { status?: string; genre_id?: number; q?: string; sort?: string; page?: number; per_page?: number } = {}) =>
     get<Paged<WatchlistItem>>('/watchlist', query),

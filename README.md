@@ -101,6 +101,7 @@ All endpoints are under `/api/v1`, return `{ data, meta? }`, and report errors a
 | `POST auth/register` · `POST auth/login` · `DELETE auth/logout` · `GET me` | Session auth (bcrypt; rate-limited) |
 | `GET genres` | Genre list |
 | `GET movies` · `GET movies/:id` · `GET movies/search?q=` · `GET movies/popular` · `GET movies/tmdb/:tmdb_id` | Catalog; the last one imports from TMDB |
+| `GET movies/discover` | Browse all of TMDB by `genre_id`, `year` and `max_runtime` (minutes); falls back to filtering local movies |
 | `GET/POST watchlist` · `GET/PATCH/DELETE watchlist/:id` · `GET watchlist/summary` | `status`, `genre_id`, `q`, `sort` (`recent`, `title`, `runtime`, `priority`), `page`, `per_page` |
 | `POST recommendations` · `GET recommendations/:id` · `GET recommendations/preview` | Body: `available_minutes` (10–360), `mood`, `genre_ids[]`, `viewing_context`, `completion_preference`, `include_abandoned`, `limit` (1–5) |
 | `POST recommendations/:id/select` · `POST recommendations/:id/dismiss` | Choose a pick / "Not tonight" |

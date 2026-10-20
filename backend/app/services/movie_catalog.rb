@@ -19,6 +19,14 @@ class MovieCatalog
     remote(page) { @client.popular(page:) } || local_page(Movie.all, page)
   end
 
+  # Browse by genre (a local Genre), release year and maximum runtime in minutes; any may be nil.
+  def discover(genre: nil, year: nil, max_runtime: nil, page: 1)
+    remote_page = if genre.nil? || genre.external_id
+      remote(page) { @client.discover(page:, genre_id: genre&.external_id, year:, max_runtime:) }
+    end
+    remote_page || local_page(local_discover_scope(genre, year, max_runtime), page)
+  end
+
   # Finds or imports a TMDB movie with full details (runtime, genres).
   def import(tmdb_id)
     existing = Movie.find_by(tmdb_id:)
@@ -55,6 +63,14 @@ class MovieCatalog
     Rails.logger.warn("[MovieCatalog] #{e.message}; using local catalog")
     @notice = "Movie search is temporarily unavailable, so you're seeing movies saved in ReelTime."
     nil
+  end
+
+  def local_discover_scope(genre, year, max_runtime)
+    scope = Movie.all
+    scope = scope.where(id: MovieGenre.where(genre:).select(:movie_id)) if genre
+    scope = scope.where(release_date: Date.new(year)..Date.new(year).end_of_year) if year
+    scope = scope.where(runtime_minutes: 1..max_runtime) if max_runtime
+    scope
   end
 
   def local_page(scope, page)

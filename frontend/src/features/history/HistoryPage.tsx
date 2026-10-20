@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { invalidateLibrary } from '../../lib/query-client'
-import { formatDate, formatRuntime, OUTCOME_LABELS } from '../../lib/format'
+import { formatDate, OUTCOME_LABELS } from '../../lib/format'
 import { OUTCOMES, type Outcome, type WatchSession } from '../../types/api'
-import { Button, ButtonLink, Chip, EmptyState, ErrorState, PageHeader, Section, Skeleton } from '../../components/ui'
+import { ButtonLink, Chip, EmptyState, ErrorState, PageHeader, Section, Skeleton } from '../../components/ui'
 import { movieHref, Poster } from '../../components/movies'
 import { HistoryIcon } from '../../components/icons'
 import { useToast } from '../../components/toast'
 import { CompletionDialog } from './CompletionDialog'
+import { NowWatchingCard } from './NowWatchingCard'
 
 const FILTERS: { label: string; value: string }[] = [
   { label: 'All', value: '' },
@@ -44,16 +45,7 @@ export function HistoryPage() {
             <section aria-labelledby="now-watching" className="mb-10">
               <h2 id="now-watching" className="mb-4 text-lg font-semibold">Watching now</h2>
               <div className="grid gap-3 lg:grid-cols-2">
-                {open.data!.data.map((s) => (
-                  <div key={s.id} className="flex items-center gap-4 rounded-2xl border border-accent/40 bg-card p-3">
-                    <Link to={movieHref(s.movie)} className="w-16 shrink-0"><Poster movie={s.movie} /></Link>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold">{s.movie.title}</p>
-                      <p className="text-sm text-fg-2">Started {formatDate(s.started_at)} · <span className="tabular-nums">{formatRuntime(s.movie.runtime_minutes)}</span></p>
-                    </div>
-                    <Button onClick={() => setReporting(s)}>How did it go?</Button>
-                  </div>
-                ))}
+                {open.data!.data.map((s) => <NowWatchingCard key={s.id} session={s} onReport={setReporting} />)}
               </div>
             </section>
           )}
