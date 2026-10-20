@@ -1,4 +1,4 @@
-import { NavLink, Outlet, ScrollRestoration } from 'react-router-dom'
+import { Link, NavLink, Outlet, ScrollRestoration } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { queryClient } from '../lib/query-client'
@@ -33,7 +33,7 @@ export function AppLayout({ user }: { user: User }) {
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-accent focus:px-3 focus:py-2 focus:text-accent-ink">Skip to content</a>
 
       <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-line/70 bg-surface px-4 py-6 md:flex">
-        <div className="px-2"><Logo /></div>
+        <Link to="/" aria-label="ReelTime home" className="self-start rounded-lg px-2"><Logo /></Link>
         <nav aria-label="Main" className="mt-10 flex flex-col gap-1">
           {NAV.map(({ to, label, icon: Icon, end }) => (
             <NavLink
@@ -60,7 +60,7 @@ export function AppLayout({ user }: { user: User }) {
       </aside>
 
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line/70 bg-canvas/90 px-4 py-3 backdrop-blur md:hidden">
-        <Logo />
+        <Link to="/" aria-label="ReelTime home" className="rounded-lg"><Logo /></Link>
         <button type="button" onClick={() => logout.mutate()} className="rounded-lg p-2 text-muted hover:text-fg" aria-label="Sign out">
           <LogoutIcon width={18} height={18} />
         </button>
