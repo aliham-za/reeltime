@@ -1,9 +1,7 @@
 import { Link, NavLink, Outlet, ScrollRestoration } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
-import { api } from '../lib/api'
-import { queryClient } from '../lib/query-client'
 import type { User } from '../types/api'
-import { ClockIcon, HistoryIcon, HomeIcon, ListIcon, LogoutIcon, SearchIcon, SettingsIcon } from './icons'
+import { AccountMenu } from './account-menu'
+import { ClockIcon, HistoryIcon, HomeIcon, ListIcon, SearchIcon } from './icons'
 
 const NAV = [
   { to: '/', label: 'Home', icon: HomeIcon, end: true },
@@ -23,11 +21,6 @@ export function Logo() {
 }
 
 export function AppLayout({ user }: { user: User }) {
-  const logout = useMutation({
-    mutationFn: api.logout,
-    onSuccess: () => queryClient.clear(),
-  })
-
   return (
     <div className="min-h-dvh md:pl-60">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-accent focus:px-3 focus:py-2 focus:text-accent-ink">Skip to content</a>
@@ -48,30 +41,15 @@ export function AppLayout({ user }: { user: User }) {
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto space-y-4 px-2">
-          <div className="flex items-center justify-between gap-1">
-            <span className="min-w-0 flex-1 truncate text-xs text-muted" title={user.email}>{user.email}</span>
-            <NavLink to="/settings" className={({ isActive }) => `rounded-lg p-1.5 hover:bg-elevated hover:text-fg ${isActive ? 'text-accent' : 'text-muted'}`} aria-label="Settings">
-              <SettingsIcon width={18} height={18} />
-            </NavLink>
-            <button type="button" onClick={() => logout.mutate()} className="rounded-lg p-1.5 text-muted hover:bg-elevated hover:text-fg" aria-label="Sign out">
-              <LogoutIcon width={18} height={18} />
-            </button>
-          </div>
-          <TmdbAttribution />
+        <div className="mt-auto space-y-4">
+          <AccountMenu user={user} />
+          <div className="px-2"><TmdbAttribution /></div>
         </div>
       </aside>
 
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line/70 bg-canvas/90 px-4 py-3 backdrop-blur md:hidden">
         <Link to="/" aria-label="ReelTime home" className="rounded-lg"><Logo /></Link>
-        <div className="flex items-center">
-          <NavLink to="/settings" className={({ isActive }) => `rounded-lg p-2 hover:text-fg ${isActive ? 'text-accent' : 'text-muted'}`} aria-label="Settings">
-            <SettingsIcon width={20} height={20} />
-          </NavLink>
-          <button type="button" onClick={() => logout.mutate()} className="rounded-lg p-2 text-muted hover:text-fg" aria-label="Sign out">
-            <LogoutIcon width={18} height={18} />
-          </button>
-        </div>
+        <AccountMenu user={user} compact />
       </header>
 
       <ScrollRestoration />

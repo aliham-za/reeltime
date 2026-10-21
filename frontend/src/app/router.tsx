@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api, ApiError } from '../lib/api'
+import type { User } from '../types/api'
 import { AppLayout } from '../components/layout'
 import { ErrorState, Skeleton } from '../components/ui'
 import { AuthPage } from '../features/auth/AuthPage'
@@ -14,10 +15,11 @@ import { HistoryPage } from '../features/history/HistoryPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
 
 function AuthGate() {
-  const me = useQuery({ queryKey: ['me'], queryFn: api.me, staleTime: Infinity })
+  // `null` means signed out (set by sign-out or any 401); the query keeps that until sign-in.
+  const me = useQuery<User | null>({ queryKey: ['me'], queryFn: api.me, staleTime: Infinity })
   if (me.isPending) return <div className="p-8"><Skeleton className="h-8 w-40" /></div>
-  if (me.error instanceof ApiError && me.error.status === 401) return <AuthPage />
-  if (me.error) return <div className="p-8"><ErrorState error={me.error} onRetry={() => me.refetch()} /></div>
+  if (me.data === null || (me.error instanceof ApiError && me.error.status === 401)) return <AuthPage />
+  if (me.error || !me.data) return <div className="p-8"><ErrorState error={me.error} onRetry={() => me.refetch()} /></div>
   return <AppLayout user={me.data} />
 }
 
