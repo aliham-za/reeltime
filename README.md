@@ -2,6 +2,8 @@
 
 **Less browsing. More watching.**
 
+**Live:** https://reeltime-0dh2.onrender.com (free Render instance, so the first visit after idle takes 30–60 seconds)
+
 ReelTime is a movie commitment engine. Tell it how much time you have, and it picks a short list from *your own watchlist*: movies you're realistically likely to finish tonight, each with a plain reason why it fits.
 
 It's not a catalog, a social network, or a chatbot. Recommendations are rule-based, deterministic and explainable.
