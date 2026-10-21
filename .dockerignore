@@ -1,0 +1,11 @@
+.git
+**/node_modules
+**/.env
+**/.env.*
+backend/config/master.key
+backend/log/*
+backend/tmp/*
+backend/storage/*
+frontend/dist
+.claude
+*.md

@@ -35,4 +35,8 @@ Rails.application.routes.draw do
       get "insights/overview", to: "insights#overview"
     end
   end
+
+  # Everything else is the React app. Must stay last.
+  root "spa#index"
+  get "*path", to: "spa#index", constraints: ->(req) { !req.path.start_with?("/api/") && req.format.html? }
 end

@@ -78,8 +78,8 @@ test:
 # Read https://guides.rubyonrails.org/configuring.html#configuring-a-database
 # for a full overview on how database connection configuration can be specified.
 #
+# Neon (or any Postgres): set DATABASE_URL to the *direct* connection string (not the "-pooler"
+# host), with sslmode=require. Migrations need a direct connection.
 production:
   <<: *default
-  database: reeltime_production
-  username: reeltime
-  password: <%= ENV["REELTIME_DATABASE_PASSWORD"] %>
+  url: <%= ENV["DATABASE_URL"] %>
